@@ -4,10 +4,7 @@ from zipfile import ZipFile
 from load_data import load_data
 import sys
 import codecs
-try:
-    import git
-except:
-    pass
+from utils import get_root()
 
 url_MLQA_V1 = 'https://dl.fbaipublicfiles.com/MLQA/MLQA_V1.zip'
 
@@ -69,10 +66,7 @@ def dataset2files(datadir, dataset):
                     #fp.write(paragraph['context'].encode("utf-8"))if __name__ == '__main__':
 
 if __name__ == "__main__":
-    try:
-        root = git.Repo(os.getcwd(), search_parent_directories=True).git.rev_parse('--show-toplevel')
-    except:
-        root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    root = get_root()
     datadir = os.path.join(root, 'data')
     download_data(datadir)
     data = load_data(datadir)
