@@ -24,6 +24,7 @@ Information retrieval using Lucene-BM25 for MLQA dataset
 ### pylucene instalation
 Add to Makefile:
 meta:
+
     PREFIX=/storage/brno2/home/xslavk01/.local/bin
     PREFIX_PYTHON=/software/python-3.6.2/gcc
     ANT=JAVA_HOME=/packages/run/jdk-8/current /software/ant-1.9/1.9.4/bin/ant
@@ -32,6 +33,7 @@ meta:
     NUM_FILES=10
 
 knot:
+
     PREFIX=/home/xslavk01/workspace/.local/bin
     PREFIX_PYTHON=/usr
     ANT=JAVA_HOME=/usr/lib/jvm/java-13-oracle /usr/bin/ant
