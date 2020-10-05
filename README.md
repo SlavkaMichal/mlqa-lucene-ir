@@ -42,4 +42,4 @@ knot:
     NUM_FILES=10
 
 ## Runinng
-    export PYTHONPATH=/storage/brno2/home/xslavk01/.local/lib/python3.6/site-package/
+    export PYTHONPATH=/storage/brno2/home/xslavk01/.local/lib/python3.6/site-packages/
