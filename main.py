@@ -1,12 +1,18 @@
 from src import utils
-from src import indexer as idx
+from src import retrieval
 from src.argparse import parse_args
 import lucene
 from org.apache.lucene.analysis.standard import StandardAnalyzer
+from org.apache.lucene.analysis.de import GermanAnalyzer
+from org.apache.lucene.analysis.es import SpanishAnalyzer
+from org.apache.lucene.analysis.en import EnglishAnalyzer
 import os
 
 analyzers = {
-        'en':StandardAnalyzer
+        'standard':StandardAnalyzer,
+        'en':EnglishAnalyzer,
+        'es':SpanishAnalyzer,
+        'de':GermanAnalyzer
         }
 
 if __name__ == '__main__':
@@ -17,15 +23,21 @@ if __name__ == '__main__':
 
     datadir = os.path.join(root,'data')
     idxfile = os.path.join(datadir, args.index)
-    analyzer = analyzers[args.language]()
+    analyzer = analyzers[args.analyzer]()
+    data    = utils.load_data(datadir)
     if args.create:
-        indexer = idx.indexer(idxfile, analyzer)
-        indexer.createIndex(datadir, args.dataset, args.language)
+        indexer = retrieval.Indexer(idxfile, analyzer)
+        indexer.createIndex(data, args.dataset, args.language)
     if args.query != None:
         #if not os.path.isfile(idxfile):
         #    raise Exception("Could not find indexfile: {}".format(idxfile))
-        searcher = idx.searcher(idxfile, analyzer)
-        searcher.query(args.query)
+        searcher = retrieval.Searcher(idxfile, analyzer)
+        searcher.queryTest(args.query)
+    if args.eval:
+        searcher = retrieval.Searcher(idxfile, analyzer)
+        searcher.hitAtK(data=data, dataset=args.dataset,
+                langContext=args.language, langQuestion=args.language, k=100)
+
 
 
 

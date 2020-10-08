@@ -42,4 +42,8 @@ knot:
     NUM_FILES=10
 
 ## Runinng
+meta:
+
+    module add python-3.6.2-gcc
+
     export PYTHONPATH=/storage/brno2/home/xslavk01/.local/lib/python3.6/site-packages/
