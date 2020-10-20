@@ -46,4 +46,7 @@ meta:
 
     module add python-3.6.2-gcc
 
-    export PYTHONPATH=/storage/brno2/home/xslavk01/.local/lib/python3.6/site-packages/
+    PYTHONPATH=/storage/brno2/home/xslavk01/.local/lib/python3.6/site-packages/
+    PYTHONPATH=$PYTHONPATH:/storage/plzen1/home/xslavk01/.local/lib/python3.6/site-packages/
+    export PYTHONPATH
+
