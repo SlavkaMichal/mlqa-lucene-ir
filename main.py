@@ -1,6 +1,6 @@
-from src import utils
-from src import retrieval
-from src.argparse import parse_args
+from retrieval_bm25.src import utils
+from retrieval_bm25.src import retrieval
+from retrieval_bm25.src.argparse import parse_args
 import lucene
 from org.apache.lucene.analysis.standard import StandardAnalyzer
 from org.apache.lucene.analysis.de import GermanAnalyzer
@@ -15,6 +15,8 @@ analyzers = {
         'de':GermanAnalyzer
         }
 
+all_langs = ['en', 'de', 'es']
+
 if __name__ == '__main__':
     args = parse_args()
     # start java VM
@@ -22,22 +24,52 @@ if __name__ == '__main__':
     root = utils.get_root()
 
     datadir = os.path.join(root,'data')
-    idxfile = os.path.join(datadir, args.index)
-    analyzer = analyzers[args.analyzer]()
-    data    = utils.load_data(datadir)
+    data = utils.load_data(datadir)
+    idxdir  = os.path.join(datadir, 'indexes')
+    if args.index == None:
+        idxdir  = os.path.join(datadir, args.index)
+    elif arg.language != 'all':
+        idxdir  = os.path.join(datadir, args.language)
+
     if args.create:
-        indexer = retrieval.Indexer(idxfile, analyzer)
-        indexer.createIndex(data, args.dataset, args.language)
+        indexer.createIndexes(data, args.dataset, args.language)
     if args.query != None:
         #if not os.path.isfile(idxfile):
         #    raise Exception("Could not find indexfile: {}".format(idxfile))
-        searcher = retrieval.Searcher(idxfile, analyzer)
+        if args.analyzer == None or args.language == 'all':
+            raise ValueError("To retrieve query you must specify analyzer and language")
+        analyzer = analyzers['args.analyzer']()
+        searcher = retrieval.Searcher(idxdir, analyzer)
         searcher.queryTest(args.query)
-    if args.eval:
-        searcher = retrieval.Searcher(idxfile, analyzer)
-        searcher.hitAtK(data=data, dataset=args.dataset,
-                langContext=args.language, langQuestion=args.language, k=100)
+    if args.hitk:
+        if args.language == 'all':
+            for lang in all_langs:
+                analyzer = analyzers[lang]()
+                searcher = retrieval.Searcher(idxdir, analyzer)
+                searcher.hitAtK(data=data, dataset=args.dataset,
+                    langContext=args.language, langQuestion=args.language, k=100)
+        else:
+            if args.analyzer == None:
+                analyzer = analyzers[args.language]()
+            else:
+                analyzer = analyzers[args.analyzer]()
+            searcher = retrieval.Searcher(idxdir, analyzer)
+            searcher.hitAtK(data=data, dataset=args.dataset,
+                    langContext=args.language, langQuestion=args.language, k=100)
+    if args.hit_dist:
+        raise NotImplementedError("This has not been implemented yet")
 
+def createIndexes(data, idxdir, args):
+    if args.language == 'all':
+        for lang in all_langs:
+            idxdir_curr = os.path.join(idxdir, lang)
+            createIndex(data, idxdir_curr, lang, args)
 
-
+def createIndex(data, idxdir, lang, args):
+    if args.analyzer == None:
+        analyzer = analyzers[lang]()
+    else:
+        analyzer = analyzers[args.analyzer]()
+    indexer = retrieval.Indexer(idxdir, analyzer)
+    indexer.createIndex(data, args.dataset, lang)
 
