@@ -1,7 +1,7 @@
 import sys, os, lucene, threading, time
 from datetime import datetime
-from retrieval.src.translator import Translator
-from retrieval.src.utils import get_root, load_data
+from .translator import Translator
+from .utils import get_root, load_data, get_index
 from glob import glob
 import numpy as np
 import pdb
@@ -21,6 +21,19 @@ from org.apache.lucene.index import DirectoryReader
 from org.apache.lucene.queryparser.classic import QueryParser
 from org.apache.lucene.search import IndexSearcher
 
+from org.apache.lucene.analysis.standard import StandardAnalyzer
+from org.apache.lucene.analysis.de import GermanAnalyzer
+from org.apache.lucene.analysis.es import SpanishAnalyzer
+from org.apache.lucene.analysis.en import EnglishAnalyzer
+
+analyzers = {
+        'standard':StandardAnalyzer,
+        'en':EnglishAnalyzer,
+        'es':SpanishAnalyzer,
+        'de':GermanAnalyzer
+        }
+
+
 class Retriever(object):
     def __init__(self):
         self.k1=1.8
@@ -30,29 +43,31 @@ class Retriever(object):
 
 
 class Indexer(Retriever):
-    def __init__(self, storedir, analyzer, datadir=None, ram_size=2048 ):
-        if not os.path.exists(storedir):
-            os.mkdir(storedir)
+    def __init__(self, lang, dataset, analyzer, datadir=None, ram_size=2048 ):
+        super().__init__()
+        idxdir = get_index(lang, dataset)
+        self.lang = lang
+        self.dataset = dataset
         # stores index files, poor concurency try NIOFSDirectory instead
-        store = SimpleFSDirectory(Paths.get(storedir))
+        store = SimpleFSDirectory(Paths.get(idxdir))
         # limit max. number of tokens per document.
         # analyzer will not consume more tokens than that
         #analyzer = LimitTokenCountAnalyzer(analyzer, 1048576)
         # configuration for index writer
-        config = IndexWriterConfig(analyzer)
+        config = IndexWriterConfig(analyzers[analyzer]())
         # creates or overwrites index
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE)
         # setting similarity BM25Similarity(k1=1.2,b=0.75)
         similarity = BM25Similarity(self.k1, self.b)
         config.setSimilarity(similarity)
-        config.setRAMBufferSize(ram_size)
+        config.setRAMBufferSizeMB(float(ram_size))
         # create index writer
         self.writer = IndexWriter(store, config)
 
         self.ftdata = FieldType()
         self.ftmeta = FieldType()
         # IndexSearcher will return value of the field
-        self.ftdata.setStored(False)
+        self.ftdata.setStored(True)
         self.ftmeta.setStored(True)
         # will be analyzed by Analyzer
         self.ftdata.setTokenized(True)
@@ -76,11 +91,11 @@ class Indexer(Retriever):
         # Id cannot be reused because there is multiple values
         # I could store list of fields and add one if its not enough
         #self.fieldId = Field("id", "dummy", self.ftmeta)
-        self.fieldDocName = Field("docname", "dummy", self.ftdata)
-        self.doc.add(fieldDocName)
+        self.fieldTitle = Field("title", "dummy", self.ftdata)
+        self.doc.add(self.fieldTitle)
         self.fieldContext = Field("context", "dummy", self.ftdata)
-        self.doc.add(fieldContext)
-
+        self.doc.add(self.fieldContext)
+        self.fieldIds     = [Field("id", "dummy", self.ftmeta)]
 
         if datadir != None:
             print("Indexing files")
@@ -90,15 +105,20 @@ class Indexer(Retriever):
             print("done")
 
     def addDoc(self, ids, title, context):
-        print("adding:", title.encode('utf-8'))
-        #doc = Document()
-        for i in ids:
-            doc.add(Field("id", i, self.ftmeta))
-        fieldDocName.setStringValue(title)
-        fieldContext.setStringValue(context)
-        #doc.add(Field("docname", title, self.ftdata))
-        #doc.add(Field("context", context, self.ftdata))
-        self.writer.addDocument(doc)
+        # to save resources field objects are not created each time a new
+        # document is being added. fieldIds keeps already created objects
+        for n, i in enumerate(ids):
+            if n < len(self.fieldIds):
+                self.fieldIds[n].setStringValue(i)
+            else:
+                self.fieldIds.append(Field("id", i, self.ftmeta))
+            self.doc.add(self.fieldIds[n])
+
+        self.fieldTitle.setStringValue(title)
+        self.fieldContext.setStringValue(context)
+        self.writer.addDocument(self.doc)
+        # because the number of ids is not known, they have to be deleted
+        # otherwise there could contain values from previous iteration
         self.doc.removeFields("id")
 
     def indexDocs(self, datadir):
@@ -112,9 +132,10 @@ class Indexer(Retriever):
                 contents = fp.read().splitlines()
             self.addDoc(path, contents[0], contents[1])
 
-    def createIndex(self, data, dataset, lang):
-        dataname = self.dataname(dataset, lang, lang)
-        data = data['mlqa_'+dataset][dataname]['data']
+    def createIndex(self, data):
+        dataname = self.dataname(self.dataset, self.lang, self.lang)
+        #pdb.set_trace()
+        data = data['mlqa_'+self.dataset][dataname]['data']
         for doc in data:
             title = doc['title']
             for paragraph in doc['paragraphs']:
@@ -129,52 +150,62 @@ class Indexer(Retriever):
         self.writer.close()
 
 class Searcher(Retriever):
-    def __init__(self, lang=None, index=None, analyzer=None):
-        if type(analyzer) != type(index):
-            raise RuntimeError("For multilingual search you need"+
-                    " multiple analyzers and indexes!")
+    def __init__(self, lang=None, dataset=None, analyzer=None):
+        super().__init__()
         self.similarity = BM25Similarity(self.k1, self.b)
         self.searcher = {}
         self.parser = {}
         self.languages = []
         self.translator = Translator([])
-        if lang != None or index != None or anlyzer != None:
-            self.addLang(lang, index, analyzer)
+        self.lang = lang
+        self.dataset = dataset
+        self.__call__ = self.query
+        if lang != None or dataset != None or analyzer != None:
+            self.addLang(lang, dataset, analyzer)
 
-    def addLang(self, lang, index, analyzer):
+    def addLang(self, lang, dataset, analyzer):
         self.languages.append(lang)
-        directory = SimpleFSDirectory(Paths.get(index))
+        idxdir = get_index(lang, dataset)
+        directory = SimpleFSDirectory(Paths.get(idxdir))
         self.searcher[lang] = IndexSearcher(DirectoryReader.open(directory))
-        self.parser[lang]   = QueryParser("context", analyzer)
+        self.parser[lang]   = QueryParser("context", analyzers[analyzer]())
         self.searcher[lang].setSimilarity(self.similarity)
         self.translator.add_language(lang)
+        self.lang = lang
 
-    def run(self, lang=None):
-        while True:
-            command = raw_input("Query:")
-            if command == '':
-                return
-            print("Searching for:", command)
-            scoreDocs = self.query[lang](command, 3)
-            self.printResult(scoreDocs)
-
-    def printResult(self, scoreDocs, lang):
+    def printResult(self, scoreDocs):
         print("Number of retrieved documents:", len(scoreDocs))
         for scoreDoc in scoreDocs:
-            doc = self.searcher[lang].doc(scoreDoc.doc)
-            for id in doc.getFields('id'):
-                print("Id:", id.stringValue())
+            doc = self.searcher[self.lang].doc(scoreDoc.doc)
             print("Score:", scoreDoc.score)
-            print("Name:", doc.get("docname").encode('utf-8'))
+            self.printDoc(doc)
+
+    def printDoc(self, doc):
+            ids = doc.getFields('id')
+            for id in ids:
+                print("Id:", id.stringValue())
+            print("Name:", doc.get("title").encode('utf-8'))
             print("Context:", doc.get("context").encode('utf-8'))
+            print("------------------------------------------------------")
 
-    def getDoc(self, scoreDoc, lang):
-        return self.searcher[lang].doc(scoreDoc.doc)
+    def getDoc(self, scoreDoc):
+        return self.searcher[self.lang].doc(scoreDoc.doc)
 
-    def queryTest(self, command, lang):
-        self.printResult(self.query(command, lang, 5))
+    def queryTest(self, command):
+        q = self.query(command, self.lang, 5)
+        self.printResult(q)
+        return q
 
-    def query(self, command, lang, n=50):
+    def query(self, command, lang=None, n=50):
+        if lang == None:
+            lang = self.lang
+        else:
+            self.lang = lang
+
+        if lang not in self.languages:
+            print(self.languages)
+            raise RuntimeError("Language '{}' not added".format(lang))
+
         esccommand = self.parser[lang].escape(command)
         query = self.parser[lang].parse(esccommand)
         scoreDocs = self.searcher[lang].search(query, n).scoreDocs
@@ -202,3 +233,4 @@ class Searcher(Retriever):
             transl_comm = self.translator(lang, to, command)
             scoreDocs.append(self.query(transl_comm, to, int(n*p)))
         return scoreDocs.sort(key=lambda x: x.score, reverse=True)[:n]
+

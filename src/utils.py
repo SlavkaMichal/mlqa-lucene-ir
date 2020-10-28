@@ -13,6 +13,17 @@ try:
 except:
     pass
 
+def get_index(lang, dataset, suffix=""):
+    root = get_root()
+    if suffix != "":
+        idxdir = "{}-{}-{}.index".format(dataset,lang,suffix)
+    else:
+        idxdir = "{}-{}.index".format(dataset,lang)
+    return os.path.join(root, 'data', 'indexes', idxdir)
+
+def get_dataname(dataset, context_lang, question_lang):
+    return dataset+'-context-'+context_lang+'-question-'+question_lang
+
 def get_root():
     try:
         root = git.Repo(os.getcwd(), search_parent_directories=True).git.rev_parse('--show-toplevel')

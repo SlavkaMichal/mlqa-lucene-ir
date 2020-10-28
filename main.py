@@ -1,19 +1,10 @@
-from retrieval_bm25.src import utils
-from retrieval_bm25.src import retrieval
-from retrieval_bm25.src.argparse import parse_args
+from src import utils
+from src.reader import Reader
+from src.retrieval import Indexer, Searcher
+from src import metrics
+from src.argparse import parse_args
 import lucene
-from org.apache.lucene.analysis.standard import StandardAnalyzer
-from org.apache.lucene.analysis.de import GermanAnalyzer
-from org.apache.lucene.analysis.es import SpanishAnalyzer
-from org.apache.lucene.analysis.en import EnglishAnalyzer
 import os
-
-analyzers = {
-        'standard':StandardAnalyzer,
-        'en':EnglishAnalyzer,
-        'es':SpanishAnalyzer,
-        'de':GermanAnalyzer
-        }
 
 all_langs = ['en', 'de', 'es']
 
@@ -24,40 +15,59 @@ if __name__ == '__main__':
     root = utils.get_root()
 
     datadir = os.path.join(root,'data')
-    data = utils.load_data(datadir)
-    idxdir  = os.path.join(datadir, 'indexes')
-    if args.index == None:
-        idxdir  = os.path.join(datadir, args.index)
-    elif arg.language != 'all':
-        idxdir  = os.path.join(datadir, args.language)
+    #idxdir  = utils.get_index(args)
 
     if args.create:
-        indexer.createIndexes(data, args.dataset, args.language)
+        indexer = Indexer(args.language, args.dataset, args.analyzer)
+        data = utils.load_data(datadir)
+        indexer.createIndex(data)
     if args.query != None:
         #if not os.path.isfile(idxfile):
         #    raise Exception("Could not find indexfile: {}".format(idxfile))
         if args.analyzer == None or args.language == 'all':
             raise ValueError("To retrieve query you must specify analyzer and language")
-        analyzer = analyzers['args.analyzer']()
-        searcher = retrieval.Searcher(idxdir, analyzer)
+        searcher = Searcher(
+                lang=args.language,
+                analyzer=args.analyzer,
+                dataset=args.dataset)
         searcher.queryTest(args.query)
-    if args.hitk:
-        if args.language == 'all':
-            for lang in all_langs:
-                analyzer = analyzers[lang]()
-                searcher = retrieval.Searcher(idxdir, analyzer)
-                searcher.hitAtK(data=data, dataset=args.dataset,
-                    langContext=args.language, langQuestion=args.language, k=100)
-        else:
-            if args.analyzer == None:
-                analyzer = analyzers[args.language]()
-            else:
-                analyzer = analyzers[args.analyzer]()
-            searcher = retrieval.Searcher(idxdir, analyzer)
-            searcher.hitAtK(data=data, dataset=args.dataset,
-                    langContext=args.language, langQuestion=args.language, k=100)
-    if args.hit_dist:
-        raise NotImplementedError("This has not been implemented yet")
+    if args.run == 'reader':
+        reader = Reader()
+        reader.run(
+                lang=args.lang,
+                analyzer=args.analyzer,
+                dataset=args.dataset)
+
+    if args.metric == 'dist':
+        metrics.hits(
+               dataset=args.dataset,
+               langContext=args.language,
+               langQuestion=args.language,
+               distant=True,
+               k=50)
+
+    if args.metric == 'hit@k':
+        metrics.hits(
+               dataset=args.dataset,
+               langContext=args.language,
+               langQuestion=args.language,
+               distant=False,
+               k=50)
+
+    if args.metric == 'qa_f1':
+        metrics.qa_f1(
+               dataset=args.dataset,
+               langContext=args.language,
+               langQuestion=args.language,
+               k=50)
+    if args.metric == 'review':
+        metrics.review(
+               dataset=args.dataset,
+               langContext=args.language,
+               langQuestion=args.language,
+               k=10
+               )
+
 
 def createIndexes(data, idxdir, args):
     if args.language == 'all':
@@ -70,6 +80,6 @@ def createIndex(data, idxdir, lang, args):
         analyzer = analyzers[lang]()
     else:
         analyzer = analyzers[args.analyzer]()
-    indexer = retrieval.Indexer(idxdir, analyzer)
+    indexer = Indexer(idxdir, analyzer)
     indexer.createIndex(data, args.dataset, lang)
 
