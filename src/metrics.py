@@ -3,6 +3,7 @@ from .retrieval import Searcher
 from .reader import Reader
 from torch.utils.data import Dataset, DataLoader
 from .utils import get_root, load_data, get_dataname
+import random
 import os
 import pdb
 import numpy as np
@@ -108,35 +109,34 @@ def qa_f1(dataset, langContext, langQuestion, saveas=None, k=50):
     try:
         for doc in data.get():
             print(tally['total'],doc['title'])
-            tally['total'] += 1
             result  = reader.answer(doc['question'])
-            #tok_answer_model = reader.tokenizer(answer)['input_ids']
-            #tok_answer_gold = reader.tokenizer(doc['answer'])['input_ids']
+            tok_answer_model = reader.tokenizer(result['answer'])['input_ids']
+            tok_answer_gold = reader.tokenizer(doc['answer'])['input_ids']
             # TODO it looks like the list is ordered by score
             # but should not be trusted
-            #tally['f1'] += f1_score(tok_answer_gold, tok_answer_model)
-            tally['f1'] += f1_score(doc['answer'], result['answer'])
+            tally['f1'] += f1_score(tok_answer_gold, tok_answer_model)
+            #tally['f1'] += f1_score(doc['answer'], result['answer'])
+            tally['total'] += 1
             tally['score'] += result['score']
-            tally['hits'] += doc['qid'] in result['ids']
+            tally['hits'] += doc['qid'] in [ id.stringValue() for id in result['doc'].getFields('id')]
             tally['exact'] += doc['answer'] == result['answer']
     except KeyboardInterrupt:
-        pass
-#    with open(saveas+"-misses.json", "w+") as fp:
-#        json.dump(misses, fp)
-    np.save(saveas+".npy", tally)
-    print("Dataset: {}".format(dataset))
-    print("Context: {}".format(langContext))
-    print("Question: {}".format(langQuestion))
-    print("F1: {}".format(tally['f1'].sum()/tally['total']))
-    print("Total: {} questions".format(tally['total']))
-    print("Hits: {}".format(tally['hits']))
-    print("Exact matches: {}".format(tally['exact']))
-    print("Mean score: {}".format(tally['score'].sum()/tally['total']))
-    print("Evaluation of retrieval done")
+        print("Keyboard Interrupt")
+    finally:
+        print("Dataset: {}".format(dataset))
+        print("Context: {}".format(langContext))
+        print("Question: {}".format(langQuestion))
+        print("F1: {}".format(tally['f1']/tally['total']))
+        print("Total: {} questions".format(tally['total']))
+        print("Hits: {}".format(tally['hits']))
+        print("Exact matches: {}".format(tally['exact']))
+        print("Mean score: {}".format(tally['score']/tally['total']))
+        print("Evaluation of retrieval done")
+        np.save(saveas+".npy", tally)
     return
 
 def f1_score(gt, prediction):
-    same_tokens = sum([gt.count(tokens) for tokens in prediction])
+    same_tokens = sum([token in gt for token in prediction])
     if same_tokens == 0 or len(prediction) == 0 or len(gt) == 0:
         return 0
     precision   = same_tokens / len(prediction)
@@ -156,15 +156,17 @@ def review(dataset, langContext, langQuestion, k=10):
     reader.addSearcher(searcher, k)
     # counters
     tally = 0
-    for doc in data.get():
+    #lst = data.get()
+    #random.shuffle(lst)
+    for doc in sorted(data.get(), key=lambda k: random.random()):
         tally += 1
         print("Doc: ",tally)
         res = reader.answer(doc['question'])
-        if doc['answer'] != res['answers'][res['n']]:
+        if doc['answer'] != res['answer']:
             print("Question: ",doc['question'])
             print("Answer gold: ",doc['answer'])
-            print("Answer: ",res['answers'][res['n']])
-            print("Score: ",res['scores'][res['n']])
+            print("Answer: ",res['answer'])
+            print("Score: ",res['score'])
             while True:
                 try:
                     command = input("Command: ")
@@ -179,6 +181,9 @@ def review(dataset, langContext, langQuestion, k=10):
                     break
                 elif command == 'cg':
                     print("Context gold: ",doc['context'])
+                elif command == 'ac':
+                    tmp = reader(doc['question'],doc['context'])
+                    print("Answer from correct context: ",tmp['answer'])
                 elif command == 'ag':
                     print("Answer gold: ",doc['answer'])
                 elif command == 'a':
@@ -207,7 +212,7 @@ def review(dataset, langContext, langQuestion, k=10):
                     scoreDocs = searcher.query(doc['question'],n=num)
                     searcher.printResult(scoreDocs)
                 else:
-                    print("Commands: q,c,cg,a,ag,s,sret,n,u,pret,k")
+                    print("Commands: q,c,cg,a,ag,ac,s,sret,n,u,pret,k")
                     print("Press C^D for exit")
                     print("Write 'next' to continue")
     return

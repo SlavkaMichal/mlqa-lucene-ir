@@ -197,18 +197,14 @@ class Searcher(Retriever):
         return q
 
     def query(self, command, lang=None, n=50):
-        if lang == None:
-            lang = self.lang
-        else:
+        if lang != None:
             self.lang = lang
-
-        if lang not in self.languages:
-            print(self.languages)
+        if self.lang not in self.languages:
             raise RuntimeError("Language '{}' not added".format(lang))
 
-        esccommand = self.parser[lang].escape(command)
-        query = self.parser[lang].parse(esccommand)
-        scoreDocs = self.searcher[lang].search(query, n).scoreDocs
+        esccommand = self.parser[self.lang].escape(command)
+        query = self.parser[self.lang].parse(esccommand)
+        scoreDocs = self.searcher[self.lang].search(query, n).scoreDocs
         return scoreDocs
 
     def queryMulti(self, command, lang, n=50, p=1):

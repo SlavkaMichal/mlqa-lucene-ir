@@ -59,14 +59,13 @@ if __name__ == '__main__':
                dataset=args.dataset,
                langContext=args.language,
                langQuestion=args.language,
-               k=50)
+               k=10)
     if args.metric == 'review':
         metrics.review(
                dataset=args.dataset,
                langContext=args.language,
                langQuestion=args.language,
-               k=10
-               )
+               k=10)
 
 
 def createIndexes(data, idxdir, args):

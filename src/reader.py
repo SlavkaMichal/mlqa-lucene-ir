@@ -1,5 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 from .retrieval import Searcher
+from torch.nn import functional as f
 import torch
 import pdb
 import math
@@ -21,6 +22,13 @@ class Reader(object):
                 truncation=True
                 )
         starts, ends = self.model(**inp)
+
+        # nicer method of getting the best span
+        #Ps = f.softmax(starts)
+        #Pe = f.softmax(ends)
+        #span = torch.argmax(torch.triu(torc.matmul(Ps.T, Pe)))
+        #start = span // len(Ps)
+        #end   = span %  len(Ps)
         start1 = torch.argmax(starts)
         end1 = torch.argmax(ends[0,start1:])+start1
         end2 = torch.argmax(ends)
@@ -38,6 +46,7 @@ class Reader(object):
                     inp['input_ids'].tolist()[0][start:end]))
         return (start, end), text, score
 
+
     def answer(self, question):
         if self.searcher == None:
             raise RuntimeError("Searcher not initialised")
@@ -54,6 +63,8 @@ class Reader(object):
             result['answers'].append(answer)
             if score > max_score:
                 max_score = score
+                result['answer'] = answer
+                result['score'] = score
                 result['doc'] = doc
                 result['pos'] = pos
                 result['n']   = n
