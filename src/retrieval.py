@@ -1,7 +1,8 @@
 import sys, os, lucene, threading, time
 from datetime import datetime
 from .translator import Translator
-from .utils import get_root, load_data, get_index
+from .utils import get_root
+from .datasets import MLQADataset, Wiki
 from glob import glob
 import numpy as np
 import pdb
@@ -26,6 +27,7 @@ from org.apache.lucene.analysis.de import GermanAnalyzer
 from org.apache.lucene.analysis.es import SpanishAnalyzer
 from org.apache.lucene.analysis.en import EnglishAnalyzer
 
+
 analyzers = {
         'standard':StandardAnalyzer,
         'en':EnglishAnalyzer,
@@ -33,21 +35,49 @@ analyzers = {
         'de':GermanAnalyzer
         }
 
-
 class Retriever(object):
     def __init__(self):
         self.k1=1.8
         self.b=0.1
+
     def dataname(self, dataset, context, question):
         return dataset+'-context-'+context+'-question-'+question
 
+    def get_index(self, lang, dataset, suffix=""):
+        root = get_root()
+        if suffix != "":
+            idxdir = "{}-{}-{}.index".format(dataset,lang,suffix)
+        else:
+            idxdir = "{}-{}.index".format(dataset,lang)
+        return os.path.join(root, 'data', 'indexes', idxdir)
+
 
 class Indexer(Retriever):
-    def __init__(self, lang, dataset, analyzer, datadir=None, ram_size=2048 ):
+    def __init__(self, lang, dataset, analyzer, ram_size=2048 ):
+        """ Returns scored documents in multiple languages.
+
+        Parameters:
+        dataset  (str): ['mlqa_dev', 'mlqa_test', 'wiki']
+        lang     (str): ['en', 'es', 'de']
+        anlyzer  (str): ['en', 'es', 'de', 'standard']
+        ram_size (int): Size of memory used while indexing
+
+        Returns:
+        """
         super().__init__()
-        idxdir = get_index(lang, dataset)
-        self.lang = lang
-        self.dataset = dataset
+
+        idxdir = self.get_index(lang, dataset)
+        self.mlqa = True
+        if dataset == 'mlqa_dev':
+            self.dataset = MLQADataset('dev', lang, lang)
+        elif dataset == 'mlqa_test':
+            self.dataset = MLQADataset('test', lang, lang)
+        elif dataset == 'wiki':
+            self.mlqa = False
+            self.dataset = Wiki(lang)
+        else:
+            raise RuntimeError("No dataloader for {}".format(dataset))
+
         # stores index files, poor concurency try NIOFSDirectory instead
         store = SimpleFSDirectory(Paths.get(idxdir))
         # limit max. number of tokens per document.
@@ -97,13 +127,6 @@ class Indexer(Retriever):
         self.doc.add(self.fieldContext)
         self.fieldIds     = [Field("id", "dummy", self.ftmeta)]
 
-        if datadir != None:
-            print("Indexing files")
-            indexDocs(datadir, writer)
-            writer.commit()
-            writer.close()
-            print("done")
-
     def addDoc(self, ids, title, context):
         # to save resources field objects are not created each time a new
         # document is being added. fieldIds keeps already created objects
@@ -121,33 +144,20 @@ class Indexer(Retriever):
         # otherwise there could contain values from previous iteration
         self.doc.removeFields("id")
 
-    def indexDocs(self, datadir):
-        """ Index documents in separate files """
-        #for datadir, dirnames, filenames in os.walk(root):
-        for filename in glob(datadir):
-            if not filename.endswith('.txt'):
-                continue
-            path = os.path.join(datadir, filename)
-            with open(path, 'r', encoding='utf-8') as fp:
-                contents = fp.read().splitlines()
-            self.addDoc(path, contents[0], contents[1])
-
-    def createIndex(self, data):
-        dataname = self.dataname(self.dataset, self.lang, self.lang)
-        #pdb.set_trace()
-        data = data['mlqa_'+self.dataset][dataname]['data']
-        for doc in data:
-            title = doc['title']
-            for paragraph in doc['paragraphs']:
-                ids = []
-                for qa in paragraph['qas']:
-                    ids.append(qa['id'])
-                self.addDoc(ids, title, paragraph['context'])
+    def createIndex(self):
+        ids = []
+        for i, doc in enumerate(self.dataset.get()):
+            if self.mlqa:
+                ids = doc['qid']
+            self.addDoc(ids, doc['title'], doc['context'])
         self.commit()
 
     def commit(self):
         self.writer.commit()
         self.writer.close()
+        if not self.mlqa:
+            self.dataset.close()
+
 
 class Searcher(Retriever):
     def __init__(self, lang=None, dataset=None, analyzer=None):

@@ -12,15 +12,17 @@ if __name__ == '__main__':
     args = parse_args()
     # start java VM
     lucene.initVM(vmargs=['-Djava.awt.headless=true'])
-    root = utils.get_root()
-
-    datadir = os.path.join(root,'data')
-    #idxdir  = utils.get_index(args)
 
     if args.create:
-        indexer = Indexer(args.language, args.dataset, args.analyzer)
-        data = utils.load_data(datadir)
-        indexer.createIndex(data)
+        langs = [args.language]
+        if args.language == 'all':
+            langs = all_langs
+        for lang in langs:
+            if args.analyzer == None:
+                analyzer = lang
+            indexer = Indexer(lang, args.dataset, analyzer)
+            indexer.createIndex()
+
     if args.query != None:
         #if not os.path.isfile(idxfile):
         #    raise Exception("Could not find indexfile: {}".format(idxfile))
@@ -31,6 +33,7 @@ if __name__ == '__main__':
                 analyzer=args.analyzer,
                 dataset=args.dataset)
         searcher.queryTest(args.query)
+
     if args.run == 'reader':
         reader = Reader()
         reader.run(
@@ -60,25 +63,10 @@ if __name__ == '__main__':
                langContext=args.language,
                langQuestion=args.language,
                k=10)
+
     if args.metric == 'review':
         metrics.review(
                dataset=args.dataset,
                langContext=args.language,
                langQuestion=args.language,
                k=10)
-
-
-def createIndexes(data, idxdir, args):
-    if args.language == 'all':
-        for lang in all_langs:
-            idxdir_curr = os.path.join(idxdir, lang)
-            createIndex(data, idxdir_curr, lang, args)
-
-def createIndex(data, idxdir, lang, args):
-    if args.analyzer == None:
-        analyzer = analyzers[lang]()
-    else:
-        analyzer = analyzers[args.analyzer]()
-    indexer = Indexer(idxdir, analyzer)
-    indexer.createIndex(data, args.dataset, lang)
-

@@ -3,7 +3,7 @@ from .retrieval import Searcher
 from .reader import Reader
 from torch.utils.data import Dataset, DataLoader
 from .utils import get_root
-from .datasets import MLQA_Dataset, EsWiki
+from .datasets import MLQADataset, Wiki
 import random
 import os
 import pdb
@@ -17,7 +17,7 @@ def hits(dataset, langContext, langQuestion, distant=False, saveas=None, k=50):
         analyzer=langContext,
         dataset=dataset)
 
-    data = MLQA_Dataset(dataset, langContext, langQuestion)
+    data = MLQADataset(dataset, langContext, langQuestion)
 
     # file to save metrics
     root = get_root()
