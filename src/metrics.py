@@ -2,32 +2,13 @@ from sklearn.metrics import f1_score
 from .retrieval import Searcher
 from .reader import Reader
 from torch.utils.data import Dataset, DataLoader
-from .utils import get_root, load_data, get_dataname
+from .utils import get_root
+from .datasets import MLQA_Dataset, EsWiki
 import random
 import os
 import pdb
 import numpy as np
 
-class MLQA_Dataset():
-    def __init__(self, dataset, langContext, langQuestion):
-        root = get_root()
-        datadir = os.path.join(root, 'data')
-        name = get_dataname(dataset, langContext, langQuestion)
-        self.data = load_data(datadir)
-        self.data = self.data['mlqa_'+dataset][name]['data']
-
-    def get(self):
-        for doc in self.data:
-            for paragraph in doc['paragraphs']:
-                for qa in paragraph['qas']:
-                    yield {
-                        'title':doc['title'],
-                        'context':paragraph['context'],
-                        'question':qa['question'],
-                        'qid':qa['id'],
-                        'answer':qa['answers'][0]['text'],
-                        'start':qa['answers'][0]['answer_start'],
-                        }
 
 def hits(dataset, langContext, langQuestion, distant=False, saveas=None, k=50):
     searcher = Searcher()
