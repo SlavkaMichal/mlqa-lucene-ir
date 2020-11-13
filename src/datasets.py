@@ -16,7 +16,7 @@ class Datasets(object):
 class MLQADataset(Datasets):
     """ Data loader for MLQA dataset
     """
-    def __init__(self, dataset, langC, langQ):
+    def __init__(self, dataset, langC, langQ, data_path=None):
         """ Returns scored documents in multiple languages.
 
         Parameters:
@@ -29,9 +29,12 @@ class MLQADataset(Datasets):
         [scoreDocs]: ordered list of scored documents by their score
 
         """
-        root = get_root()
         filename = dataset+'-context-'+langC+'-question-'+langQ+".json"
-        path = os.path.join(root, 'data', 'MLQA_V1', dataset, filename)
+        if data_path == None:
+            root = get_root()
+            path = os.path.join(root, 'data', 'MLQA_V1', dataset, filename)
+        else:
+            path = os.path.join(data_path, filename)
         print("Mlqa dataset from: ", path)
         with open(path) as fp:
             self.data = json.load(fp)['data']
@@ -51,10 +54,14 @@ class MLQADataset(Datasets):
                         }
 
 class Wiki(Datasets):
-    def __init__(self, lang, max_length=1000, paragraph_overlap=False):
+    def __init__(self, lang, data_path=None, max_length=1000, paragraph_overlap=False):
         # TODO  paragraph_overlap needs a check
-        root = get_root()
-        path = os.path.join(root, 'data', 'wiki', 'tmp_'+lang+'wiki_chenprep.db')
+        if data_path == None:
+            root = get_root()
+            path = os.path.join(root, 'data', 'wiki', 'tmp_'+lang+'wiki_chenprep.db')
+        else:
+            path = os.path.join(data_path, 'tmp_'+lang+'wiki_chenprep.db')
+
         print("Path to db: ", path)
         self.conn = sql.connect(path)
         self.c = self.conn.cursor()

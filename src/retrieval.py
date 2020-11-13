@@ -43,17 +43,20 @@ class Retriever(object):
     def dataname(self, dataset, context, question):
         return dataset+'-context-'+context+'-question-'+question
 
-    def get_index(self, lang, dataset, suffix=""):
-        root = get_root()
+    def get_index(self, lang, dataset, index_path=None, suffix=""):
         if suffix != "":
             idxdir = "{}-{}-{}.index".format(dataset,lang,suffix)
         else:
             idxdir = "{}-{}.index".format(dataset,lang)
-        return os.path.join(root, 'data', 'indexes', idxdir)
+        if index_path == None:
+            root = get_root()
+            return os.path.join(root, 'data', 'indexes', idxdir)
+        else:
+            return os.path.join(index_path, idxdir)
 
 
 class Indexer(Retriever):
-    def __init__(self, lang, dataset, analyzer, ram_size=2048 ):
+    def __init__(self, lang, dataset, analyzer, index_path=None, data_path=None, ram_size=2048 ):
         """ Returns scored documents in multiple languages.
 
         Parameters:
@@ -66,15 +69,15 @@ class Indexer(Retriever):
         """
         super().__init__()
 
-        idxdir = self.get_index(lang, dataset)
+        idxdir = self.get_index(lang, dataset, index_path)
         self.mlqa = True
         if dataset == 'mlqa_dev':
-            self.dataset = MLQADataset('dev', lang, lang)
+            self.dataset = MLQADataset('dev', lang, lang, data_path)
         elif dataset == 'mlqa_test':
-            self.dataset = MLQADataset('test', lang, lang)
+            self.dataset = MLQADataset('test', lang, lang, data_path)
         elif dataset == 'wiki':
             self.mlqa = False
-            self.dataset = Wiki(lang)
+            self.dataset = Wiki(lang, data_path)
         else:
             raise RuntimeError("No dataloader for {}".format(dataset))
 

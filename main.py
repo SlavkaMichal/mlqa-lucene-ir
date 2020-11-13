@@ -20,7 +20,13 @@ if __name__ == '__main__':
         for lang in langs:
             if args.analyzer == None:
                 analyzer = lang
-            indexer = Indexer(lang, args.dataset, analyzer)
+            indexer = Indexer(
+                index_path=args.index,
+                data_path=args.index,
+                lang=lang,
+                dataset=args.dataset,
+                analyzer=analyzer,
+                ram_size=args.ram_size)
             indexer.createIndex()
 
     if args.query != None:
@@ -29,6 +35,7 @@ if __name__ == '__main__':
         if args.analyzer == None or args.language == 'all':
             raise ValueError("To retrieve query you must specify analyzer and language")
         searcher = Searcher(
+                index_path=args.index,
                 lang=args.language,
                 analyzer=args.analyzer,
                 dataset=args.dataset)

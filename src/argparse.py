@@ -3,8 +3,10 @@ import argparse
 def parse_args():
     parser = argparse.ArgumentParser(description='Creating and Searching index files')
 
-    #parser.add_argument('-i', '--index', action='store', type=str, default=None,
-    #                    help='Path to index file')
+    parser.add_argument('-i', '--index', action='store', type=str, default=None,
+                        help='Path to index file')
+    parser.add_argument('-p', '--path', action='store', type=str, default=None,
+                        help='Path to data')
     parser.add_argument('-d', '--dataset', action='store', type=str, required=True,
                         choices=['mlqa_dev', 'mlqa_test', 'wiki'], help='Dataset for indexing')
     parser.add_argument('-l', '--language', action='store', type=str, required=True,
@@ -18,9 +20,11 @@ def parse_args():
     parser.add_argument('-m', '--metric', action='store', type=str,
                         choices=['dist', 'hit@k', 'qa_f1', 'review'], help='Compute metric')
     parser.add_argument('-r', '--run', action='store', type=str,
-                        choices=['reader', 'retriever'], help='Interactive')
+                        choices=['reader', 'retriever'], help='Run interactively')
+    parser.add_argument('-s', '--ram_size', action='store', type=int, default=2048,
+                        help='Ram size for indexing')
 
-    parser.add_argument('-p', '--progress_bar', action='store_true',
+    parser.add_argument('--progress_bar', action='store_true',
                         help='Show progress bar while indexing TODO')
     parser.add_argument('--test', action='store_true',
                         help='Test run TODO')
