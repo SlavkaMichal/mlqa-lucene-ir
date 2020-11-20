@@ -1,6 +1,7 @@
 from .utils import get_root
 import sqlite3 as sql
 import os
+import json
 from spacy.lang.en import English
 from spacy.lang.de import German
 from spacy.lang.es import Spanish
@@ -60,7 +61,7 @@ class Wiki(Datasets):
             root = get_root()
             path = os.path.join(root, 'data', 'wiki', 'tmp_'+lang+'wiki_chenprep.db')
         else:
-            path = os.path.join(data_path, 'tmp_'+lang+'wiki_chenprep.db')
+            path = os.path.join(data_path, lang+'wiki_chenprep.db')
 
         print("Path to db: ", path)
         self.conn = sql.connect(path)

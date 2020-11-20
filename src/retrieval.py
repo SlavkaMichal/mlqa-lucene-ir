@@ -178,7 +178,7 @@ class Searcher(Retriever):
 
     def addLang(self, lang, dataset, analyzer):
         self.languages.append(lang)
-        idxdir = get_index(lang, dataset)
+        idxdir = self.get_index(lang, dataset)
         directory = SimpleFSDirectory(Paths.get(idxdir))
         self.searcher[lang] = IndexSearcher(DirectoryReader.open(directory))
         self.parser[lang]   = QueryParser("context", analyzers[analyzer]())
@@ -210,6 +210,9 @@ class Searcher(Retriever):
         return q
 
     def query(self, command, lang=None, n=50):
+        """
+        Retrieve documents for question
+        """
         if lang != None:
             self.lang = lang
         if self.lang not in self.languages:

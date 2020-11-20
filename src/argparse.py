@@ -9,6 +9,8 @@ def parse_args():
                         help='Path to data')
     parser.add_argument('-d', '--dataset', action='store', type=str, required=True,
                         choices=['mlqa_dev', 'mlqa_test', 'wiki'], help='Dataset for indexing')
+    parser.add_argument('-e', '--eval-dataset', action='store', type=str, required=False, default=None,
+                        choices=['dev', 'test'], help='Dataset for evaluation with answers')
     parser.add_argument('-l', '--language', action='store', type=str, required=True,
                         choices=['en', 'es', 'de','multi'], help='Context language')
     parser.add_argument('-a', '--analyzer', action='store', type=str, default=None,
@@ -26,6 +28,9 @@ def parse_args():
 
     parser.add_argument('--progress_bar', action='store_true',
                         help='Show progress bar while indexing TODO')
+
+    parser.add_argument('--dry', action='store_true',
+                        help='Test run TODO')
     parser.add_argument('--test', action='store_true',
                         help='Test run TODO')
 

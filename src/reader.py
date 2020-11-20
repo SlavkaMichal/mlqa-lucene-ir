@@ -1,5 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 from .retrieval import Searcher
+from .translator import Translator
 from torch.nn import functional as f
 import torch
 import pdb
@@ -13,8 +14,10 @@ class Reader(object):
         self.model = AutoModelForQuestionAnswering.from_pretrained(model)
         self.call = self.__call__
         self.searcher = None
+        self.tr = None
 
     def __call__(self, question, context):
+        """ Invoking reader """
         inp = self.tokenizer(question, context,
                 add_special_tokens=True,
                 return_tensors='pt',
@@ -47,15 +50,15 @@ class Reader(object):
         return (start, end), text, score
 
 
-    def answer(self, question):
+    def answerEn(self, question):
         if self.searcher == None:
             raise RuntimeError("Searcher not initialised")
-        scoreDocs = self.searcher.query(question, n=self.n)
+        scoreDocs = self.searcher.query(question, 'en', n=self.n)
 
-        result = {}
+        result = {'scores':[],'answers':[]}
         max_score=-math.inf
-        result['scores'] = []
-        result['answers'] = []
+        #result['scores'] = []
+        #result['answers'] = []
         for n, scoreDoc in enumerate(scoreDocs):
             doc = self.searcher.getDoc(scoreDoc)
             pos, answer, score = self.call(question, doc.get("context"))
@@ -71,9 +74,46 @@ class Reader(object):
                 result['ret_score']  = scoreDoc.score
         return result
 
+    def answer(self, question, langQuestion, langSearch):
+        if self.searcher == None or self.tr == None:
+            raise RuntimeError("Searcher not initialised")
+
+        questionSearch = self.tr(question, langQuestion, langSearch)
+        scoreDocs = self.searcher.query(questionSearch, langSearch, n=self.n)
+
+        result = {'scores':[],'answers':[]}
+        max_score=-math.inf
+        #result['scores'] = []
+        #result['answers'] = []
+        questionRead = self.tr(question, langQuestion, 'en')
+        for n, scoreDoc in enumerate(scoreDocs):
+            doc = self.searcher.getDoc(scoreDoc)
+            contextSearch = doc.get("context")
+            contextRead = self.tr(contextSearch, langSearch, 'en')
+            pos, answer, score = self.call(questionRead, contextRead)
+            if score > max_score:
+                max_score = score
+                result['answerQuestion'] = self.tr(answer, 'en', langQuestion)
+                result['answerSearch']   = self.tr(answer, 'en', langSearch)
+                result['answerRead']     = answer
+                result['questionSearch'] = questionSearch
+                result['questionRead']   = questionRead
+                result['contextQuestion'] = self.tr(contextSearch, langSearch, langQuestion)
+                result['contextSearch'] = contextSearch
+                result['contextRead'] = contextRead
+                result['score_read'] = score
+                result['score_retr']  = scoreDoc.score
+                result['pos'] = pos
+                result['n']   = n
+        return result
+
+
     def addSearcher(self, searcher, n=50):
         self.searcher = searcher
         self.n = n
+
+    def addTranslator(self, translator, tr_langs):
+        self.tr = translator
 
     def run(self):
         while True:

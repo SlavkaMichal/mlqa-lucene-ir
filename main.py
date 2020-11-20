@@ -5,11 +5,16 @@ from src import metrics
 from src.argparse import parse_args
 import lucene
 import os
+import sys
 
 all_langs = ['en', 'de', 'es']
 
 if __name__ == '__main__':
     args = parse_args()
+    if args.test:
+        for k, v in vars(args).items():
+            print("{0: <12}: {1}".format(k,v))
+        sys.exit(0)
     # start java VM
     lucene.initVM(vmargs=['-Djava.awt.headless=true'])
 
@@ -47,7 +52,6 @@ if __name__ == '__main__':
                 lang=args.lang,
                 analyzer=args.analyzer,
                 dataset=args.dataset)
-
     if args.metric == 'dist':
         metrics.hits(
                dataset=args.dataset,
@@ -67,13 +71,15 @@ if __name__ == '__main__':
     if args.metric == 'qa_f1':
         metrics.qa_f1(
                dataset=args.dataset,
-               langContext=args.language,
+               eval_dataset=args.eval_dataset,
+               langSearch=args.language,
                langQuestion=args.language,
                k=10)
 
     if args.metric == 'review':
         metrics.review(
                dataset=args.dataset,
+               eval_dataset=args.eval_dataset,
                langContext=args.language,
                langQuestion=args.language,
                k=10)

@@ -1,5 +1,6 @@
 from sklearn.metrics import f1_score
 from .retrieval import Searcher
+from .translator import Translator
 from .reader import Reader
 from torch.utils.data import Dataset, DataLoader
 from .utils import get_root
@@ -61,23 +62,27 @@ def hits(dataset, langContext, langQuestion, distant=False, saveas=None, k=50):
     print("Evaluation of retrieval done")
     return
 
-def qa_f1(dataset, langContext, langQuestion, saveas=None, k=50):
+def qa_f1(dataset, eval_dataset, langSearch, langQuestion, saveas=None, k=50):
     searcher = Searcher()
     searcher.addLang(
-        lang=langContext,
-        analyzer=langContext,
+        lang=langSearch,
+        analyzer=langSearch,
         dataset=dataset)
 
-    data = MLQA_Dataset(dataset, langContext, langQuestion)
+    tr_langs = {'en', langSearch, langQuestion}
+    translator = Translator(tr_langs)
+
+    data = MLQADataset(eval_dataset, langSearch, langQuestion)
 
     reader = Reader()
     reader.addSearcher(searcher, k)
+    reader.addTranslator(translator, tr_langs)
     # file to save metrics
     root = get_root()
     metric = "qa_f1_"
     if saveas == None:
         saveas = os.path.join(root,"data/stats/{}{}-C{}-Q{}"
-                .format(metric, dataset, langContext, langQuestion))
+                .format(metric, dataset, langSearch, langQuestion))
     else:
         saveas = os.path.join(root,"data/stats/{}".format(saveas))
     print("Saving stats as {}".format(saveas))
@@ -88,31 +93,42 @@ def qa_f1(dataset, langContext, langQuestion, saveas=None, k=50):
     misses = []
     tally = np.zeros(1, dtype=dtype)[0]
     try:
-        for doc in data.get():
-            print(tally['total'],doc['title'])
-            result  = reader.answer(doc['question'])
-            tok_answer_model = reader.tokenizer(result['answer'])['input_ids']
-            tok_answer_gold = reader.tokenizer(doc['answer'])['input_ids']
+        for n, doc in enumerate(data.get()):
+            #print(tally['total'],doc['title'])
+            # Question is in langQuestion need to be translated to langSearch
+            result  = reader.answer(doc['question'], langQuestion, langSearch)
+            #tok_answer_model = reader.tokenizer(result['answer'])['input_ids']
+            #tok_answer_gold = reader.tokenizer(doc['answer'])['input_ids']
             # TODO it looks like the list is ordered by score
             # but should not be trusted
-            tally['f1'] += f1_score(tok_answer_gold, tok_answer_model)
-            #tally['f1'] += f1_score(doc['answer'], result['answer'])
+            #tally['f1'] += f1_score(tok_answer_gold, tok_answer_model)
+            tally['f1'] += f1_score(doc['answer'], result['answerSearch'])
             tally['total'] += 1
-            tally['score'] += result['score']
-            tally['hits'] += doc['qid'] in [ id.stringValue() for id in result['doc'].getFields('id')]
-            tally['exact'] += doc['answer'] == result['answer']
+            tally['score'] += result['score_read']
+            #tally['hits'] += doc['qid'] in [ id.stringValue() for id in result['doc'].getFields('id')]
+            tally['hits'] += int(doc['answer'] in result['contextSearch'])
+
+            for k, v in result.items():
+                if type(v) == str:
+                    v = v[:35]
+                print("{:<15}: {}".format(k,v))
+            print("-"*55)
+            if n > 3:
+                print("breaking")
+                break
     except KeyboardInterrupt:
         print("Keyboard Interrupt")
     finally:
         print("Dataset: {}".format(dataset))
-        print("Context: {}".format(langContext))
+        print("Context: {}".format(langSearch))
         print("Question: {}".format(langQuestion))
-        print("F1: {}".format(tally['f1']/tally['total']))
-        print("Total: {} questions".format(tally['total']))
-        print("Hits: {}".format(tally['hits']))
-        print("Exact matches: {}".format(tally['exact']))
-        print("Mean score: {}".format(tally['score']/tally['total']))
-        print("Evaluation of retrieval done")
+        if tally['total'] > 0:
+            print("F1: {}".format(tally['f1']/tally['total']))
+            print("Total: {} questions".format(tally['total']))
+            print("Hits: {}".format(tally['hits']))
+            print("Exact matches: {}".format(tally['exact']))
+            print("Mean score: {}".format(tally['score']/tally['total']))
+            print("Evaluation of retrieval done")
         np.save(saveas+".npy", tally)
     return
 
@@ -131,7 +147,7 @@ def review(dataset, langContext, langQuestion, k=10):
         analyzer=langContext,
         dataset=dataset)
 
-    data = MLQA_Dataset(dataset, langContext, langQuestion)
+    data = MLQADataset('test', langContext, langQuestion)
 
     reader = Reader()
     reader.addSearcher(searcher, k)
@@ -164,7 +180,7 @@ def review(dataset, langContext, langQuestion, k=10):
                     print("Context gold: ",doc['context'])
                 elif command == 'ac':
                     tmp = reader(doc['question'],doc['context'])
-                    print("Answer from correct context: ",tmp['answer'])
+                    print("Answer from correct context: ",tmp[1])
                 elif command == 'ag':
                     print("Answer gold: ",doc['answer'])
                 elif command == 'a':

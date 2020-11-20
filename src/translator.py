@@ -1,4 +1,5 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+import torch
 
 class Translator(object):
 
@@ -12,14 +13,17 @@ class Translator(object):
         for lang_pair in lang_pairs:
             self.add_model(lang_pair)
 
-    def __call__(self, lang, transl, sentence):
+    def __call__(self, sentence, lang, transl):
         lang_pair = lang+"-"+transl
-        return self.translate(lang_pair, sentence)
+        if lang == transl:
+            return sentence
+        return self.translate(sentence, lang_pair)
 
     def add_model(self, lang_pair):
         model_name = "Helsinki-NLP/opus-mt-"+lang_pair
         try:
             self.models[lang_pair] = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            self.models[lang_pair].eval()
             self.tokenizers[lang_pair] = AutoTokenizer.from_pretrained(model_name)
             #self.pipelines[lang_pair] = pipeline(lang_pair,
             #        model=AutoModelForSeq2SeqLM.from_pretrained(model_name),
@@ -35,13 +39,15 @@ class Translator(object):
             self.add_model(lang+"_"+new_lang)
         self.languages.append(new_lang)
 
-    def translate(self, lang, transl, sentence):
+    def translate(self, sentence, lang, transl):
         if lang == transl:
             return sentence
         lang_pair = lang+"-"+transl
-        return self.translate(lang_pair, sentence)
+        return self.translate(sentence, lang_pair)
 
-    def translate(self, lang_pair, sentence):
-        inp = self.tokenizer[lang_pair](sentence)
-        return self.model[lang_pair](inp)
+    def translate(self, sentence, lang_pair):
+        inp = self.tokenizers[lang_pair].prepare_seq2seq_batch([sentence])
+        with torch.no_grad():
+            out = self.models[lang_pair].generate(**inp)
+        return self.tokenizers[lang_pair].decode(out[0], skip_special_tokens=True)
 
