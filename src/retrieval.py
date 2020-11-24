@@ -163,27 +163,25 @@ class Indexer(Retriever):
 
 
 class Searcher(Retriever):
-    def __init__(self, lang=None, dataset=None, analyzer=None):
+    def __init__(self, lang=None, dataset=None, analyzer=None, index_path=None):
         super().__init__()
         self.similarity = BM25Similarity(self.k1, self.b)
         self.searcher = {}
         self.parser = {}
         self.languages = []
-        self.translator = Translator([])
         self.lang = lang
         self.dataset = dataset
         self.__call__ = self.query
         if lang != None or dataset != None or analyzer != None:
-            self.addLang(lang, dataset, analyzer)
+            self.addLang(lang, dataset, analyzer, index_path)
 
-    def addLang(self, lang, dataset, analyzer):
+    def addLang(self, lang, dataset, analyzer, index_path=None):
         self.languages.append(lang)
-        idxdir = self.get_index(lang, dataset)
+        idxdir = self.get_index(lang, dataset, index_path)
         directory = SimpleFSDirectory(Paths.get(idxdir))
         self.searcher[lang] = IndexSearcher(DirectoryReader.open(directory))
         self.parser[lang]   = QueryParser("context", analyzers[analyzer]())
         self.searcher[lang].setSimilarity(self.similarity)
-        self.translator.add_language(lang)
         self.lang = lang
 
     def printResult(self, scoreDocs):
@@ -223,26 +221,26 @@ class Searcher(Retriever):
         scoreDocs = self.searcher[self.lang].search(query, n).scoreDocs
         return scoreDocs
 
-    def queryMulti(self, command, lang, n=50, p=1):
-        """ Returns scored documents in multiple languages.
+    #def queryMulti(self, command, lang, n=50, p=1):
+    #    """ Returns scored documents in multiple languages.
 
-        Parameters:
-        command (str): query string
-        lang    (str): language in which is the query
-        n       (int): number of documents retrieved
-        p       (float): reduces number of retrieved documents from each language
-                         e.g.: for 3 languages, n = 50 and p = 0.5 from each language
-                         25 documents will be retrieved.
-                         Must satisfy n*len(langs)*p >= n
+    #    Parameters:
+    #    command (str): query string
+    #    lang    (str): language in which is the query
+    #    n       (int): number of documents retrieved
+    #    p       (float): reduces number of retrieved documents from each language
+    #                     e.g.: for 3 languages, n = 50 and p = 0.5 from each language
+    #                     25 documents will be retrieved.
+    #                     Must satisfy n*len(langs)*p >= n
 
-        Returns:
+    #    Returns:
 
-        [scoreDocs]: ordered list of scored documents by their score
+    #    [scoreDocs]: ordered list of scored documents by their score
 
-        """
-        scoreDocs = []
-        for to in self.languages:
-            transl_comm = self.translator(lang, to, command)
-            scoreDocs.append(self.query(transl_comm, to, int(n*p)))
-        return scoreDocs.sort(key=lambda x: x.score, reverse=True)[:n]
+    #    """
+    #    scoreDocs = []
+    #    for to in self.languages:
+    #        transl_comm = self.translator(lang, to, command)
+    #        scoreDocs.append(self.query(transl_comm, to, int(n*p)))
+    #    return scoreDocs.sort(key=lambda x: x.score, reverse=True)[:n]
 

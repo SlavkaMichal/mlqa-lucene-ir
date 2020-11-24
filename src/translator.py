@@ -5,6 +5,7 @@ class Translator(object):
 
     def __init__(self, languages=['en', 'es','de']):
         lang_pairs = [ l1+"-"+l2 for l2 in languages for l1 in languages if l1 != l2 ]
+        print("Translator language pairs: ", lang_pairs)
         self.languages = languages
         self.models = {}
         self.tokenizers = {}

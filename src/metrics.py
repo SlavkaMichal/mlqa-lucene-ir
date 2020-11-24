@@ -108,14 +108,17 @@ def qa_f1(dataset, eval_dataset, langSearch, langQuestion, saveas=None, k=50):
             #tally['hits'] += doc['qid'] in [ id.stringValue() for id in result['doc'].getFields('id')]
             tally['hits'] += int(doc['answer'] in result['contextSearch'])
 
-            for k, v in result.items():
-                if type(v) == str:
-                    v = v[:35]
-                print("{:<15}: {}".format(k,v))
-            print("-"*55)
-            if n > 3:
-                print("breaking")
-                break
+            if (n%10000 == 0):
+                print(n)
+
+            #for k, v in result.items():
+            #    if type(v) == str:
+            #        v = v[:35]
+            #    print("{:<15}: {}".format(k,v))
+            #print("-"*55)
+            #if n > 3:
+            #    print("breaking")
+            #    break
     except KeyboardInterrupt:
         print("Keyboard Interrupt")
     finally:
@@ -213,3 +216,37 @@ def review(dataset, langContext, langQuestion, k=10):
                     print("Press C^D for exit")
                     print("Write 'next' to continue")
     return
+
+
+###############################################################################
+# f1 score from DrQA
+def normalize_answer(s):
+    """Lower text and remove punctuation, articles and extra whitespace."""
+    def remove_articles(text):
+        return re.sub(r'\b(a|an|the)\b', ' ', text)
+
+    def white_space_fix(text):
+        return ' '.join(text.split())
+
+    def remove_punc(text):
+        exclude = set(string.punctuation)
+        return ''.join(ch for ch in text if ch not in exclude)
+
+    def lower(text):
+        return text.lower()
+
+    return white_space_fix(remove_articles(remove_punc(lower(s))))
+
+
+def f1_drqa(prediction, ground_truth):
+    """Compute the geometric mean of precision and recall for answer tokens."""
+    prediction_tokens = normalize_answer(prediction).split()
+    ground_truth_tokens = normalize_answer(ground_truth).split()
+    common = Counter(prediction_tokens) & Counter(ground_truth_tokens)
+    num_same = sum(common.values())
+    if num_same == 0:
+        return 0
+    precision = 1.0 * num_same / len(prediction_tokens)
+    recall = 1.0 * num_same / len(ground_truth_tokens)
+    f1 = (2 * precision * recall) / (precision + recall)
+    return f1
