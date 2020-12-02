@@ -36,9 +36,16 @@ analyzers = {
         }
 
 class Retriever(object):
-    def __init__(self):
-        self.k1=1.8
-        self.b=0.1
+    def __init__(self, k1=None, b=None):
+        if k1 == None:
+            self.k1=1.8
+        else:
+            self.k1=k1
+
+        if b == None:
+            self.b=0.1
+        else:
+            self.b=b
 
     def dataname(self, dataset, context, question):
         return dataset+'-context-'+context+'-question-'+question
@@ -163,8 +170,9 @@ class Indexer(Retriever):
 
 
 class Searcher(Retriever):
-    def __init__(self, lang=None, dataset=None, analyzer=None, index_path=None):
-        super().__init__()
+    def __init__(self, lang=None, dataset=None, analyzer=None, index_path=None, k1=None, b=None):
+        super().__init__(k1, b)
+        print("Searcher k1: {}, b: {}", self.k1, self.b)
         self.similarity = BM25Similarity(self.k1, self.b)
         self.searcher = {}
         self.parser = {}
