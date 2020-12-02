@@ -6,6 +6,9 @@ class Translator(object):
     def __init__(self, languages=['en', 'es','de']):
         lang_pairs = [ l1+"-"+l2 for l2 in languages for l1 in languages if l1 != l2 ]
         print("Translator language pairs: ", lang_pairs)
+        self.device = 'cpu'
+        if torch.cuda.is_available():
+            self.device = 'cuda'
         self.languages = languages
         self.models = {}
         self.tokenizers = {}
@@ -23,7 +26,7 @@ class Translator(object):
     def add_model(self, lang_pair):
         model_name = "Helsinki-NLP/opus-mt-"+lang_pair
         try:
-            self.models[lang_pair] = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            self.models[lang_pair] = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(self.device)
             self.models[lang_pair].eval()
             self.tokenizers[lang_pair] = AutoTokenizer.from_pretrained(model_name)
             #self.pipelines[lang_pair] = pipeline(lang_pair,
@@ -47,7 +50,7 @@ class Translator(object):
         return self.translate(sentence, lang_pair)
 
     def translate(self, sentence, lang_pair):
-        inp = self.tokenizers[lang_pair].prepare_seq2seq_batch([sentence])
+        inp = self.tokenizers[lang_pair].prepare_seq2seq_batch([sentence]).to(self.device)
         with torch.no_grad():
             out = self.models[lang_pair].generate(**inp)
         return self.tokenizers[lang_pair].decode(out[0], skip_special_tokens=True)

@@ -1,5 +1,5 @@
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
-from .retrieval import Searcher
+#from .retrieval import Searcher
 from .translator import Translator
 from torch.nn import functional as f
 import torch
@@ -7,11 +7,18 @@ import pdb
 import math
 
 class Reader(object):
-    def __init__(self, model=None):
+    def __init__(self, model=None, tokenizer=None):
         if model == None:
             model = "distilbert-base-uncased-distilled-squad"
-        self.tokenizer = AutoTokenizer.from_pretrained(model)
-        self.model = AutoModelForQuestionAnswering.from_pretrained(model)
+        if tokenizer==None:
+            tokenizer = "distilbert-base-uncased-distilled-squad"
+
+        self.device = 'cpu'
+        if torch.cuda.is_available():
+            self.device = 'cuda'
+
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+        self.model = AutoModelForQuestionAnswering.from_pretrained(model).to(self.device)
         self.call = self.__call__
         self.searcher = None
         self.tr = None
@@ -23,8 +30,9 @@ class Reader(object):
                 return_tensors='pt',
                 max_length=512,
                 truncation=True
-                )
-        starts, ends = self.model(**inp)
+                ).to(self.device)
+        with torch.no_grad():
+            starts, ends = self.model(**inp)
 
         # nicer method of getting the best span
         #Ps = f.softmax(starts)
