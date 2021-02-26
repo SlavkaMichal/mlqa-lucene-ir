@@ -54,6 +54,31 @@ class MLQADataset(Datasets):
                         'start':qa['answers'][0]['answer_start'],
                         }
 
+class WikiDPR(Datasets):
+    def __init__(self,data_path=None):
+        if data_path == None:
+            root = get_root()
+            path = os.path.join(root, 'data', 'wiki', 'dpr','data','wikipedia_split','psgs_w100.tsv')
+        else:
+            path = os.path.join(data_path, 'psgs_w100.tsv')
+        self.f = open(path, 'r+', encoding='utf-8')
+        print("reading data from ", path)
+        # skipping empty line
+        line = self.f.readline()
+
+    def get(self):
+        for line in self.f:
+            split = line[:-1].split('\t')
+            if len(split) != 3:
+                print("Line length error", line)
+                continue
+            yield {
+                'title':split[2],
+                'context':split[1],
+                'id':split[0]
+                }
+        f.close()
+
 class Wiki(Datasets):
     def __init__(self, lang, data_path=None, max_length=1000, paragraph_overlap=False):
         # TODO  paragraph_overlap needs a check

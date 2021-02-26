@@ -2,7 +2,7 @@ import sys, os, lucene, threading, time
 from datetime import datetime
 from .translator import Translator
 from .utils import get_root
-from .datasets import MLQADataset, Wiki
+from .datasets import MLQADataset, Wiki, WikiDPR
 from glob import glob
 import numpy as np
 import pdb
@@ -67,7 +67,7 @@ class Indexer(Retriever):
         """ Returns scored documents in multiple languages.
 
         Parameters:
-        dataset  (str): ['mlqa_dev', 'mlqa_test', 'wiki']
+        dataset  (str): ['mlqa_dev', 'mlqa_test', 'wiki', 'wiki_dpr']
         lang     (str): ['en', 'es', 'de']
         anlyzer  (str): ['en', 'es', 'de', 'standard']
         ram_size (int): Size of memory used while indexing
@@ -77,19 +77,26 @@ class Indexer(Retriever):
         super().__init__()
 
         idxdir = self.get_index(lang, dataset, index_path)
-        self.mlqa = True
         if dataset == 'mlqa_dev':
+            self.name = 'mlqa'
             self.dataset = MLQADataset('dev', lang, lang, data_path)
         elif dataset == 'mlqa_test':
+            self.name = 'mlqa'
             self.dataset = MLQADataset('test', lang, lang, data_path)
         elif dataset == 'wiki':
-            self.mlqa = False
+            self.name = dataset
             self.dataset = Wiki(lang, data_path)
+        elif dataset == 'wiki_dpr':
+            if lang != 'en':
+                raise NotImplementedError("Only works with English")
+            self.name = dataset
+            self.dataset = WikiDPR(data_path)
         else:
             raise RuntimeError("No dataloader for {}".format(dataset))
 
         # stores index files, poor concurency try NIOFSDirectory instead
         store = SimpleFSDirectory(Paths.get(idxdir))
+        print("saving index to ",idxdir)
         # limit max. number of tokens per document.
         # analyzer will not consume more tokens than that
         #analyzer = LimitTokenCountAnalyzer(analyzer, 1048576)
@@ -157,8 +164,12 @@ class Indexer(Retriever):
     def createIndex(self):
         ids = []
         for i, doc in enumerate(self.dataset.get()):
-            if self.mlqa:
+          if i % 1000 == 0:
+              print(i)
+            if self.name == 'mlqa':
                 ids = doc['qid']
+            if self.name == 'wiki_dpr':
+                ids = [doc['id']]
             self.addDoc(ids, doc['title'], doc['context'])
         self.commit()
 
@@ -210,8 +221,11 @@ class Searcher(Retriever):
     def getDoc(self, scoreDoc):
         return self.searcher[self.lang].doc(scoreDoc.doc)
 
-    def queryTest(self, command):
-        q = self.query(command, self.lang, 5)
+    def queryTest(self, command,field):
+        if field == None:
+            q = self.query(command, self.lang, 5)
+        else:
+            q = self.queryField(command, field, self.lang, 5)
         self.printResult(q)
         return q
 
@@ -226,6 +240,21 @@ class Searcher(Retriever):
 
         esccommand = self.parser[self.lang].escape(command)
         query = self.parser[self.lang].parse(esccommand)
+        scoreDocs = self.searcher[self.lang].search(query, n).scoreDocs
+        return scoreDocs
+
+    def queryField(self, command, field, lang=None, n=50):
+        """
+        Retrieve documents for question
+        """
+        if lang != None:
+            self.lang = lang
+        if self.lang not in self.languages:
+            raise RuntimeError("Language '{}' not added".format(lang))
+
+        parser = QueryParser(field, analyzers[self.lang]())
+        esccommand = parser.escape(command)
+        query = parser.parse(esccommand)
         scoreDocs = self.searcher[self.lang].search(query, n).scoreDocs
         return scoreDocs
 

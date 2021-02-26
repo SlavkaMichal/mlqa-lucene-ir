@@ -50,3 +50,38 @@ meta:
     PYTHONPATH=$PYTHONPATH:/storage/plzen1/home/xslavk01/.local/lib/python3.6/site-packages/
     export PYTHONPATH
 
+## Usage main.py
+    python main.py -h
+    usage: main.py [-h] [-i INDEX] [-p PATH] -d {mlqa_dev,mlqa_test,wiki}
+                   [-e {dev,test}] -l {en,es,de,multi} [-a {en,es,de,standard}]
+                   [-q QUERY] [-c] [-m {dist,hit@k,qa_f1,review}]
+                   [-r {reader,retriever}] [-s RAM_SIZE] [--progress_bar] [--dry]
+                   [--test]
+
+    Creating and Searching index files
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -i INDEX, --index INDEX
+                            Path to index file
+      -p PATH, --path PATH  Path to data
+      -d {mlqa_dev,mlqa_test,wiki}, --dataset {mlqa_dev,mlqa_test,wiki}
+                            Dataset for indexing
+      -e {dev,test}, --eval-dataset {dev,test}
+                            Dataset for evaluation with answers
+      -l {en,es,de,multi}, --language {en,es,de,multi}
+                            Context language
+      -a {en,es,de,standard}, --analyzer {en,es,de,standard}
+                            Select analyzer
+      -q QUERY, --query QUERY
+                            Query data
+      -c, --create          Create new index
+      -m {dist,hit@k,qa_f1,review}, --metric {dist,hit@k,qa_f1,review}
+                            Compute metric
+      -r {reader,retriever}, --run {reader,retriever}
+                            Run interactively
+      -s RAM_SIZE, --ram_size RAM_SIZE
+                            Ram size for indexing
+      --progress_bar        Show progress bar while indexing TODO
+      --dry                 Test run TODO
+      --test                Test run TODO

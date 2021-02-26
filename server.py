@@ -63,7 +63,6 @@ def run(conn, addr, args):
         start_recv = time()
         recv = recvall(conn)
         stop_recv = time()
-        n = 1
 
         if 'init' in recv:
             print("Initialising searcher")
@@ -92,7 +91,7 @@ def run(conn, addr, args):
                     document = {}
                     doc = searcher.getDoc(scoreDoc)
                     document['context'] = doc.get("context")
-                    document['title'] = doc.get("docname")
+                    document['title'] = doc.get("title")
                     document['score']   = scoreDoc.score
                     documents['docs'].append(document)
                 res['search'].append(documents)
@@ -106,6 +105,7 @@ def run(conn, addr, args):
                 return 1
             else:
                 conn.close()
+            break
 
         end_request = time()
         if cnt % args.write_intensity == 0 and args.write_intensity != 0:

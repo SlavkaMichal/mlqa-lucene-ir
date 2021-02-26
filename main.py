@@ -23,6 +23,7 @@ if __name__ == '__main__':
         if args.language == 'all':
             langs = all_langs
         for lang in langs:
+            analyzer = args.analyzer
             if args.analyzer == None:
                 analyzer = lang
             indexer = Indexer(
@@ -44,7 +45,7 @@ if __name__ == '__main__':
                 lang=args.language,
                 analyzer=args.analyzer,
                 dataset=args.dataset)
-        searcher.queryTest(args.query)
+        searcher.queryTest(args.query, args.field)
 
     if args.run == 'reader':
         reader = Reader()
