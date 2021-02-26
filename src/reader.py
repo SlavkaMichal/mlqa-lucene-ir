@@ -1,13 +1,11 @@
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
-#from .retrieval import Searcher
-from .translator import Translator
 from torch.nn import functional as f
 import torch
-import pdb
 import math
 
 class Reader(object):
-    def __init__(self, model=None, tokenizer=None):
+    def __init__(self, select_span, model=None, tokenizer=None):
+        self.select_span = select_span
         if model == None:
             model = "distilbert-base-uncased-distilled-squad"
         if tokenizer==None:
@@ -35,22 +33,25 @@ class Reader(object):
             starts, ends = self.model(**inp)
 
         # nicer method of getting the best span
-        #Ps = f.softmax(starts)
-        #Pe = f.softmax(ends)
-        #span = torch.argmax(torch.triu(torc.matmul(Ps.T, Pe)))
-        #start = span // len(Ps)
-        #end   = span %  len(Ps)
-        start1 = torch.argmax(starts)
-        end1 = torch.argmax(ends[0,start1:])+start1
-        end2 = torch.argmax(ends)
-        start2 = torch.argmax(starts[0,:end2+1])
+        if self.select_span == 'max':
+            p_starts = f.softmax(starts)
+            p_ends = f.softmax(ends)
+            span = torch.argmax(torch.triu(torch.matmul(p_starts.T, p_ends)))
+            start = span // len(p_starts)
+            end = span % len(p_starts)
+            score = starts[0, start].item() + ends[0, end].item()
+        elif self.select_span == 'old':
+            start1 = torch.argmax(starts)
+            end1 = torch.argmax(ends[0,start1:])+start1
+            end2 = torch.argmax(ends)
+            start2 = torch.argmax(starts[0,:end2+1])
 
-        score1 = starts[0,start1]+ends[0,end1]
-        score2 = starts[0,start2]+ends[0,end2]
-        if  score1 > score2:
-            start, end, score = start1, end1+1, score1.item()
-        else:
-            start, end, score = start2, end2+1, score2.item()
+            score1 = starts[0,start1]+ends[0,end1]
+            score2 = starts[0,start2]+ends[0,end2]
+            if  score1 > score2:
+                start, end, score = start1, end1+1, score1.item()
+            else:
+                start, end, score = start2, end2+1, score2.item()
 
         text = self.tokenizer.convert_tokens_to_string(
                 self.tokenizer.convert_ids_to_tokens(

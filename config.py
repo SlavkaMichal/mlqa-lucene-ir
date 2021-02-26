@@ -1,9 +1,0 @@
-port = 22221
-server = 'skirit.ics.muni.cz'
-langSearch='en'
-dataset='dev'
-stop=0
-langQuestion='en'
-topk=5
-b=0.2173
-k1=0.9203

@@ -2,7 +2,7 @@ from src import utils
 from src.reader import Reader
 from src.retrieval import Indexer, Searcher
 from src import metrics
-from src.argparse import parse_args
+from src.argparser import parse_args
 import lucene
 import os
 import sys

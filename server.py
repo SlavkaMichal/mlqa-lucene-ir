@@ -1,14 +1,9 @@
-from src import utils
-from src.reader import Reader
-from src.retrieval import Indexer, Searcher
-from src import metrics
-from src.argparse import parse_args
-import argparse
+from src.retrieval import Searcher
+import argparser
 import config
 import pickle
 import socket
 import lucene
-import os
 import sys
 from time import time
 
@@ -83,17 +78,16 @@ def run(conn, addr, args):
                 searcher.addLang(lang, dataset, lang, args.index_dir)
 
         if 'search' in recv:
-            res = {}
-            res['search'] = []
+            res = {'search': []}
             for s in recv['search']:
-                documents = {'id': s['id'],'docs':[]}
+                documents = {'id': s['id'], 'docs': []}
                 scoreDocs = searcher.query(s['question'], s['lang'], n)
+                document = {}
                 for scoreDoc in scoreDocs:
-                    document = {}
                     doc = searcher.getDoc(scoreDoc)
                     document['context'] = doc.get("context")
                     document['title'] = doc.get("docname")
-                    document['score']   = scoreDoc.score
+                    document['score'] = scoreDoc.score
                     documents['docs'].append(document)
                 res['search'].append(documents)
                 sendall(conn, res)
@@ -118,7 +112,7 @@ def run(conn, addr, args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Searching server')
+    parser = argparser.ArgumentParser(description='Searching server')
     parser.add_argument('-p', '--port', action='store', type=int, default=config.port,
                         help='TCP port')
     parser.add_argument('-w', '--write-intensity', action='store', type=int, default=0,

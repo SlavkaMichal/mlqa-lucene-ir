@@ -1,9 +1,9 @@
 from client import main
-import argparse
+import argparser
 from hyperopt import tpe, hp, fmin
 import config
 
-parser = argparse.ArgumentParser(description='Searching server')
+parser = argparser.ArgumentParser(description='Searching server')
 parser.add_argument('-p', '--port', action='store', type=int, default=config.port,
                     help='TCP port')
 parser.add_argument('--stop', action='store', type=int, default=config.stop,

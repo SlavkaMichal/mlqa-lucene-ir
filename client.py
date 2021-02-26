@@ -1,42 +1,41 @@
 from src.reader import Reader
-#from src import metrics
-from src.argparse import parse_args
+# from src import metrics
 from src.datasets import MLQADataset
 from src.translator import Translator
 import string
 from collections import Counter
-import cProfile
 import regex as re
 import json
 import argparse
 import config
 import pickle
 import socket
-import os
 import sys
 import numpy as np
 
 all_langs = ['en', 'de', 'es']
 
+
 def main(args):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     for k, v in vars(args).items():
-        print("{0: <12}: {1}".format(k,v))
-    print("{0: <12}: {1}".format("Hostname",socket.gethostname()))
+        print("{0: <12}: {1}".format(k, v))
+    print("{0: <12}: {1}".format("Hostname", socket.gethostname()))
 
     if args.dry_run:
         sys.exit(0)
 
     sock.connect((args.server, args.port))
-    #pr = cProfile.Profile()
-    #pr.enable()
+    # pr = cProfile.Profile()
+    # pr.enable()
     f1 = runf1(sock, args)
-    #ipr.disable()
-    #pr.print_stats()
+    # ipr.disable()
+    # pr.print_stats()
 
     sock.close()
 
     return f1
+
 
 def recvall(conn):
     data = conn.recv(4096)
@@ -48,6 +47,7 @@ def recvall(conn):
 
     return pickle.loads(data)
 
+
 def sendall(conn, msg):
     data = pickle.dumps(msg)
     n = len(data)
@@ -55,28 +55,32 @@ def sendall(conn, msg):
     conn.sendall(data)
     return
 
+
 def init(conn, dataset, args):
     print("Initializing")
-    msg = {'init':{
-        'dataset':dataset,
-        'n':args.topk,
-        'langs':[args.langSearch],
-        'b':args.b,
-        'k1':args.k1
-        }}
+    msg = {'init': {
+        'dataset': dataset,
+        'n': args.topk,
+        'langs': [args.langSearch],
+        'b': args.b,
+        'k1': args.k1
+    }}
     for k, v in msg['init'].items():
-        print("{0: <12}: {1}".format(k,v))
+        print("{0: <12}: {1}".format(k, v))
     sendall(conn, msg)
+
 
 def close(conn, stop=False):
     print("Stoping")
-    msg = {'stop':stop}
+    msg = {'stop': stop}
     sendall(conn, msg)
     conn.close()
 
+
 def search(conn, question, lang):
-    msg = {'search':[{'lang':lang, 'question':question, 'id':0}]}
+    msg = {'search': [{'lang': lang, 'question': question, 'id': 0}]}
     sendall(conn, msg)
+
 
 def runf1(conn, args):
     # evaluation dataset
@@ -89,7 +93,7 @@ def runf1(conn, args):
     # initialise reader
     print("Reader")
     reader = Reader(model="models/distilbert-base-uncased-distilled-squad/",
-            tokenizer="models/distilbert-uncased-my-tok")
+                    tokenizer="models/distilbert-uncased-my-tok", select_span='old')
 
     # initialise translator
     print("Translator")
@@ -97,53 +101,53 @@ def runf1(conn, args):
     translator = Translator(languages)
     print("Translating between: {}".format(str(languages)))
     counters = {
-            'f1':[],
-            'tally':0,
-            'score':[]}
-
+        'f1': [],
+        'tally': 0,
+        'score': []}
 
     for doc in data.get():
         questionSearch = translator(doc['question'], args.langQuestion, args.langSearch)
-        #print("questionSearch ", questionSearch.encode('utf-8'))
+        # print("questionSearch ", questionSearch.encode('utf-8'))
         search(conn, questionSearch, args.langSearch)
 
         if args.langSearch == 'en':
             questionRead = questionSearch
         else:
             questionRead = translator(doc['question'], args.langQuestion, 'en')
-        #print("questionRead ", questionRead.encode('utf-8'))
+        # print("questionRead ", questionRead.encode('utf-8'))
         # recv = {'search':[{'id':qid, 'docs':[{'context':'...', 'title':'...', 'score':score}]}]
         bestScore = 0
         recv = recvall(conn)
         for n, docSearch in enumerate(recv['search'][0]['docs']):
             # reader answer question given contexts
-            #print("n: ", n)
-            #print("contextSearch ", docSearch['context'].encode('utf-8'))
+            # print("n: ", n)
+            # print("contextSearch ", docSearch['context'].encode('utf-8'))
+            # TODO batch translation
             contextRead = translator(docSearch['context'], args.langSearch, 'en')
-            #print("contextRead ", contextRead.encode('utf-8'))
+            # print("contextRead ", contextRead.encode('utf-8'))
             _, answerRead, score = reader(questionRead, contextRead)
             if score >= bestScore:
-                bestScore   = score
-                bestAnswer  = answerRead
+                bestScore = score
+                bestAnswer = answerRead
                 bestContext = contextRead
 
-        #print("goldAnswer: ",doc['answer'].encode('utf-8'))
-        #print("Answer:     ",bestAnswer.encode('utf-8'))
+        # print("goldAnswer: ",doc['answer'].encode('utf-8'))
+        # print("Answer:     ",bestAnswer.encode('utf-8'))
         counters['f1'].append(f1_drqa(bestAnswer, doc['answer']))
         counters['tally'] += 1
         counters['score'].append(bestScore)
         # test
         if args.stop != 0 and counters['tally'] >= args.stop:
-            print("Stoping at: ",counters['tally'])
+            print("Stoping at: ", counters['tally'])
             break
-        #if i > 1:
+        # if i > 1:
         #    break
 
     f1 = np.array(counters['f1'])
-    exact_match = f1[f1 == 1.0].sum()/f1.size
+    exact_match = f1[f1 == 1.0].sum() / f1.size
     print("Exact match: {}".format(exact_match))
     print("F1 mean: {}".format(f1.mean()))
-    print("Mean score: {}".format(sum(counters['score'])/counters['tally']))
+    print("Mean score: {}".format(sum(counters['score']) / counters['tally']))
     print("Total: {}".format(counters['tally']))
     if args.save_as:
         print("Writing to: ", args.save_as)
@@ -154,9 +158,11 @@ def runf1(conn, args):
 
     return f1.mean()
 
+
 # f1 score from DrQA
 def normalize_answer(s):
     """Lower text and remove punctuation, articles and extra whitespace."""
+
     def remove_articles(text):
         return re.sub(r'\b(a|an|the)\b', ' ', text)
 

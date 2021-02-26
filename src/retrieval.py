@@ -215,11 +215,11 @@ class Searcher(Retriever):
         self.printResult(q)
         return q
 
-    def query(self, command, lang=None, n=50):
+    def query(self, command, lang=None,  field='context', n=50):
         """
         Retrieve documents for question
         """
-        if lang != None:
+        if lang is not None:
             self.lang = lang
         if self.lang not in self.languages:
             raise RuntimeError("Language '{}' not added".format(lang))

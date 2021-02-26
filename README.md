@@ -50,3 +50,8 @@ meta:
     PYTHONPATH=$PYTHONPATH:/storage/plzen1/home/xslavk01/.local/lib/python3.6/site-packages/
     export PYTHONPATH
 
+### TODO
+* use TypedDict wherever it is possible
+* maybe discard my dataset loaders for https://huggingface.co/docs/datasets/
+* finetuning reader
+* use `configparser` or `configargparse`

@@ -1,14 +1,12 @@
-from sklearn.metrics import f1_score
 from .retrieval import Searcher
 from .translator import Translator
 from .reader import Reader
-from torch.utils.data import Dataset, DataLoader
 from .utils import get_root
 from .datasets import MLQADataset, Wiki
 import random
 import os
-import pdb
 import numpy as np
+import json
 
 
 def hits(dataset, langContext, langQuestion, distant=False, saveas=None, k=50):
@@ -23,7 +21,7 @@ def hits(dataset, langContext, langQuestion, distant=False, saveas=None, k=50):
     # file to save metrics
     root = get_root()
     metric = "hitAtk_"
-    if dist:
+    if distant:
         metric = "dist_"
     if saveas == None:
         saveas = os.path.join(root,"data/stats/{}{}-C{}-Q{}"
@@ -40,12 +38,12 @@ def hits(dataset, langContext, langQuestion, distant=False, saveas=None, k=50):
         tally['total'] += 1
         # TODO it looks like the list is ordered by score
         # but should not be trusted
-        scoreDocs = self.query(doc['question'], k)
+        scoreDocs = searcher.query(doc['question'], k)
         hit = False
         for n, scoreDoc in enumerate(scoreDocs):
             ret_doc = searcher.getDoc(scoreDoc.doc)
             # list of qa ids
-            docIds = [ id.stringValue() for id in ret_doc.getFields('id')]
+            docIds = [id.stringValue() for id in ret_doc.getFields('id')]
             # check if the document is a hit
             if doc['qid'] in docIds or (distant and doc['answer'] in ret_doc.get('context')):
                 tally['hits'][n] += 1
@@ -53,8 +51,8 @@ def hits(dataset, langContext, langQuestion, distant=False, saveas=None, k=50):
                 hit = True
                 break
         if not hit:
-            misses.append({'question':qa['question'],
-                'context' : paragraph['context']})
+            misses.append({'question':doc['question'],
+                'context' : doc['context']})
 
     with open(saveas+"-misses.json", "w+") as fp:
         json.dump(misses, fp)
@@ -75,8 +73,8 @@ def qa_f1(dataset, eval_dataset, langSearch, langQuestion, saveas=None, k=50):
     data = MLQADataset(eval_dataset, langSearch, langQuestion)
 
     reader = Reader()
-    reader.addSearcher(searcher, k)
-    reader.addTranslator(translator, tr_langs)
+    reader.addSearcher(searcher)
+    reader.addTranslator(translator)
     # file to save metrics
     root = get_root()
     metric = "qa_f1_"
@@ -96,7 +94,7 @@ def qa_f1(dataset, eval_dataset, langSearch, langQuestion, saveas=None, k=50):
         for n, doc in enumerate(data.get()):
             #print(tally['total'],doc['title'])
             # Question is in langQuestion need to be translated to langSearch
-            result  = reader.answer(doc['question'], langQuestion, langSearch)
+            result  = reader.answer(doc['question'], langQuestion, langSearch, k)
             #tok_answer_model = reader.tokenizer(result['answer'])['input_ids']
             #tok_answer_gold = reader.tokenizer(doc['answer'])['input_ids']
             # TODO it looks like the list is ordered by score
@@ -153,7 +151,7 @@ def review(dataset, langContext, langQuestion, k=10):
     data = MLQADataset('test', langContext, langQuestion)
 
     reader = Reader()
-    reader.addSearcher(searcher, k)
+    reader.addSearcher(searcher)
     # counters
     tally = 0
     #lst = data.get()
@@ -161,7 +159,7 @@ def review(dataset, langContext, langQuestion, k=10):
     for doc in sorted(data.get(), key=lambda k: random.random()):
         tally += 1
         print("Doc: ",tally)
-        res = reader.answer(doc['question'])
+        res = reader.answer(doc['question'], langQuestion, langContext, k)
         if doc['answer'] != res['answer']:
             print("Question: ",doc['question'])
             print("Answer gold: ",doc['answer'])
@@ -202,7 +200,7 @@ def review(dataset, langContext, langQuestion, k=10):
                     print("Used document: ")
                     searcher.printDoc(res['doc'])
                 elif command == 'pret':
-                    scoreDocs = searcher.query(doc['question'],n=3)
+                    scoreDocs = searcher.query(doc['question'], n=3)
                     searcher.printResult(scoreDocs)
                 elif command == 'k':
                     try:
